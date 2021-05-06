@@ -69,6 +69,8 @@ public class Enumodify extends Mod {
             }
 
             contentMapf.set(content, contentMapAll.toArray());
+
+            Log.info(Seq.with(ContentType.all));
         } catch(Exception e) {
             throw new RuntimeException(e);
         }
