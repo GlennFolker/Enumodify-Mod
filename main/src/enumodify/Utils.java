@@ -7,16 +7,18 @@ import java.lang.invoke.*;
 import java.lang.invoke.MethodHandles.*;
 import java.lang.reflect.*;
 
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"unchecked", "rawtypes"})
 public final class Utils {
-    private static MethodHandle MODIFIERS;
-    private static MethodHandle DECL_CLASS;
-    private static MethodHandle SET_ACCESSOR;
+    private static final MethodHandle MODIFIERS;
+    private static final MethodHandle DECL_CLASS;
+    private static final MethodHandle SET_ACCESSOR;
 
-    private static boolean USE_SUN;
+    private static final boolean USE_SUN;
     private static Object J8_REF_FACTORY;
     private static MethodHandle J8_NEW_CONS_ACCESSOR;
     private static MethodHandle J8_NEW_INSTANCE;
+
+    private static final int MODES;
 
     static {
         try {
@@ -35,19 +37,8 @@ public final class Utils {
             }
             USE_SUN = use;
 
-            Constructor<Lookup> cons = Structs.find(Lookup.class.getDeclaredConstructors(), e -> e.toString().contains("(java.lang.Class)"));
-            cons.setAccessible(true);
-
-            Field name = Class.class.getDeclaredField("name");
-            name.setAccessible(true);
-
-            name.set(Field.class, "Field");
-            MODIFIERS = cons.newInstance(Field.class).findSetter(Field.class, "modifiers", int.class);
-            name.set(Field.class, "java.lang.reflect.Field");
-
-            name.set(Constructor.class, "Constructor");
-            DECL_CLASS = cons.newInstance(Constructor.class).findSetter(Constructor.class, "clazz", Class.class);
-            name.set(Constructor.class, "java.lang.reflect.Constructor");
+            MODIFIERS = newLookup(Field.class).findSetter(Field.class, "modifiers", int.class);
+            DECL_CLASS = newLookup(Constructor.class).findSetter(Constructor.class, "clazz", Class.class);
 
             Method setf = null;
             Method[] methodsf = Field.class.getDeclaredMethods();
@@ -58,12 +49,55 @@ public final class Utils {
                 }
             }
 
-            name.set(Field.class, "Field");
-            SET_ACCESSOR = cons.newInstance(Field.class).unreflect(setf);
-            name.set(Field.class, "java.lang.reflect.Field");
+            SET_ACCESSOR = newLookup(Field.class).unreflect(setf);
+
+            int modes = 0;
+            try {
+                Field field = Lookup.class.getDeclaredField("FULL_POWER_MODES");
+                field.setAccessible(true);
+
+                modes = field.getInt(null);
+            } catch(NoSuchFieldException e) {
+                Field field = Lookup.class.getDeclaredField("ALL_MODES");
+                field.setAccessible(true);
+
+                modes = field.getInt(null);
+            }
+            MODES = modes;
 
             Log.info("Reflection/invocation utility has been initialized.");
             Log.info("Usage of sun packages: @.", USE_SUN);
+        } catch(Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static Lookup newLookup(Class<?> in) {
+        Seq<Class<?>> argTypes = new Seq<>(Class.class);
+        argTypes.addAll(Class.class, Class.class, int.class);
+
+        Seq args = new Seq();
+        args.addAll(in, null, MODES);
+
+        try{
+            Lookup.class.getDeclaredField("prevLookupClass");
+        }catch(NoSuchFieldException e){
+            argTypes.remove(1);
+            args.remove(1);
+        }
+
+        try {
+            Constructor<Lookup> cons = Lookup.class.getDeclaredConstructor(argTypes.toArray());
+            cons.setAccessible(true);
+
+            Field name = Class.class.getDeclaredField("name");
+            String prev = in.getName();
+
+            name.set(in, prev.substring(prev.lastIndexOf("."), prev.length()));
+            Lookup lookup = cons.newInstance(args.toArray());
+            name.set(in, prev);
+
+            return lookup;
         } catch(Exception e) {
             throw new RuntimeException(e);
         }
@@ -130,7 +164,8 @@ public final class Utils {
             valuesField.setAccessible(true);
 
             T[] previousValues = (T[])valuesField.get(type);
-            Seq<T> values = Seq.with(previousValues);
+            Seq<T> values = new Seq<>(type);
+            values.addAll(previousValues);
 
             Constructor<T> cons = type.getDeclaredConstructor(String.class, int.class);
             T value = createEnum(type, cons, name, previousValues.length);
@@ -138,12 +173,7 @@ public final class Utils {
 
             revoke(valuesField, Modifier.FINAL);
 
-            T[] array = (T[])Array.newInstance(type, values.size);
-            for(int i = 0; i < values.size; i++) {
-                array[i] = values.get(i);
-            }
-
-            valuesField.set(null, array);
+            valuesField.set(null, values.toArray());
 
             return value;
         } catch(Exception e) {
