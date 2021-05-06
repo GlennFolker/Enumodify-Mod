@@ -1,4 +1,4 @@
-package template.automation;
+package enumodify.automation;
 
 import arc.*;
 import arc.assets.*;
@@ -145,7 +145,7 @@ public class AssetsPlugin extends AbstractProcessor {
             .addMethod(load.build())
             .addMethod(dispose.build());
 
-        JavaFile.builder("template.gen", soundSpec.build())
+        JavaFile.builder("enumodify.gen", soundSpec.build())
             .indent("    ")
             .skipJavaLangImports(true)
         .build().writeTo(filer);

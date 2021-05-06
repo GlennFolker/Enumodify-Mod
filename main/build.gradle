@@ -26,7 +26,7 @@ dependencies {
         '-processor',
 
         // [change] Change it to your own package declaration
-        'template.automation.AssetsPlugin'
+        'enumodify.automation.AssetsPlugin'
     ];
 }
 
