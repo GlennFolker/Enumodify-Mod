@@ -64,7 +64,7 @@ task dex(dependsOn: dist) {
         }
 
         // Full command: 'd8 --classpath ... --min-api [sdkVersion] --output [dexedArtifact] [jarArtifact]'.
-        command += ['--min-api', '26', "--output", dexedArtifact, jarArtifact]
+        command += ['--min-api', sdkMinAPI, "--output", dexedArtifact, jarArtifact]
         if(isWindows()) {
             // Add 'cmd /c' for Windows.
             commandLine('cmd', '/c', *command)
