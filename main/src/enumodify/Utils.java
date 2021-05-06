@@ -35,7 +35,7 @@ public final class Utils {
             }
             USE_SUN = use;
 
-            Constructor<Lookup> cons = Lookup.class.getDeclaredConstructor(Class.class);
+            Constructor<Lookup> cons = Structs.find(Lookup.class.getDeclaredConstructors(), e -> e.toString().contains("(java.lang.Class)"));
             cons.setAccessible(true);
 
             Field name = Class.class.getDeclaredField("name");
