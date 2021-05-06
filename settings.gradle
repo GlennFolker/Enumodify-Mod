@@ -1,0 +1,5 @@
+include ':automation'
+include ':main'
+
+// [subject] Change to your mod name.
+rootProject.name = 'template'
