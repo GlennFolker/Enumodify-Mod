@@ -1,5 +1,7 @@
 package enumodify;
 
+import arc.*;
+import arc.Application.*;
 import arc.struct.*;
 import arc.util.*;
 
@@ -9,8 +11,12 @@ import java.lang.reflect.*;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public final class Utils {
+    private static final boolean ANDROID = Core.app.getType() == ApplicationType.android;
+
     private static final MethodHandle MODIFIERS;
     private static final MethodHandle DECL_CLASS;
+    private static final Field A_MODIFIERS;
+
     private static final MethodHandle SET_ACCESSOR;
 
     private static final boolean USE_SUN;
@@ -18,7 +24,7 @@ public final class Utils {
     private static MethodHandle J8_NEW_CONS_ACCESSOR;
     private static MethodHandle J8_NEW_INSTANCE;
 
-    private static final int MODES;
+    private static final int MODES = Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED | Modifier.STATIC | (Modifier.STATIC << 1) | (Modifier.STATIC << 2);
 
     static {
         try {
@@ -37,33 +43,31 @@ public final class Utils {
             }
             USE_SUN = use;
 
-            MODIFIERS = newLookup(Field.class).findSetter(Field.class, "modifiers", int.class);
-            DECL_CLASS = newLookup(Constructor.class).findSetter(Constructor.class, "clazz", Class.class);
+            if(!ANDROID) {
+                MODIFIERS = newLookup(Field.class).findSetter(Field.class, "modifiers", int.class);
+                DECL_CLASS = newLookup(Constructor.class).findSetter(Constructor.class, "clazz", Class.class);
 
-            Method setf = null;
-            Method[] methodsf = Field.class.getDeclaredMethods();
-            for(Method method : methodsf) {
-                if(method.getName().contains("setFieldAccessor")) {
-                    setf = method;
-                    break;
+                A_MODIFIERS = null;
+
+                Method setf = null;
+                Method[] methodsf = Field.class.getDeclaredMethods();
+                for(Method method : methodsf) {
+                    if(method.getName().contains("setFieldAccessor")) {
+                        setf = method;
+                        break;
+                    }
                 }
+
+                SET_ACCESSOR = newLookup(Field.class).unreflect(setf);
+            } else {
+                MODIFIERS = null;
+                DECL_CLASS = null;
+
+                A_MODIFIERS = Field.class.getDeclaredField("accessFlags");
+                A_MODIFIERS.setAccessible(true);
+
+                SET_ACCESSOR = null;
             }
-
-            SET_ACCESSOR = newLookup(Field.class).unreflect(setf);
-
-            int modes = 0;
-            try {
-                Field field = Lookup.class.getDeclaredField("FULL_POWER_MODES");
-                field.setAccessible(true);
-
-                modes = field.getInt(null);
-            } catch(NoSuchFieldException e) {
-                Field field = Lookup.class.getDeclaredField("ALL_MODES");
-                field.setAccessible(true);
-
-                modes = field.getInt(null);
-            }
-            MODES = modes;
 
             Log.info("Reflection/invocation utility has been initialized.");
             Log.info("Usage of sun packages: @.", USE_SUN);
@@ -91,6 +95,8 @@ public final class Utils {
             cons.setAccessible(true);
 
             Field name = Class.class.getDeclaredField("name");
+            name.setAccessible(true);
+
             String prev = in.getName();
 
             name.set(in, prev.substring(prev.lastIndexOf("."), prev.length()));
@@ -116,10 +122,16 @@ public final class Utils {
             field.setAccessible(true);
 
             int mods = field.getModifiers();
-            MODIFIERS.invoke(field, mods & ~modifier);
+            if(!ANDROID) {
+                MODIFIERS.invoke(field, mods & ~modifier);
+            } else {
+                A_MODIFIERS.setInt(field, mods & ~modifier);
+            }
 
-            SET_ACCESSOR.invoke(field, null, false);
-            SET_ACCESSOR.invoke(field, null, true);
+            if(SET_ACCESSOR != null) {
+                SET_ACCESSOR.invoke(field, null, false);
+                SET_ACCESSOR.invoke(field, null, true);
+            }
         } catch(Throwable e) {
             throw new RuntimeException(e);
         }
@@ -133,10 +145,14 @@ public final class Utils {
                 cons.setAccessible(true);
 
                 Class<T> before = cons.getDeclaringClass();
-                DECL_CLASS.invoke(cons, Object.class);
+                if(!ANDROID) {
+                    DECL_CLASS.invoke(cons, Object.class);
+                }
 
                 T obj = cons.newInstance(args);
-                DECL_CLASS.invoke(cons, before);
+                if(!ANDROID) {
+                    DECL_CLASS.invoke(cons, before);
+                }
 
                 return obj;
             }
@@ -169,10 +185,11 @@ public final class Utils {
 
             Constructor<T> cons = type.getDeclaredConstructor(String.class, int.class);
             T value = createEnum(type, cons, name, previousValues.length);
+            Log.info(value);
+
             values.add(value);
 
             revoke(valuesField, Modifier.FINAL);
-
             valuesField.set(null, values.toArray());
 
             return value;
