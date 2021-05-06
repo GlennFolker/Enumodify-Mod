@@ -122,10 +122,10 @@ public final class Utils {
             field.setAccessible(true);
 
             int mods = field.getModifiers();
-            if(!ANDROID) {
-                MODIFIERS.invoke(field, mods & ~modifier);
-            } else {
+            if(ANDROID) {
                 A_MODIFIERS.setInt(field, mods & ~modifier);
+            } else {
+                MODIFIERS.invoke(field, mods & ~modifier);
             }
 
             if(SET_ACCESSOR != null) {
