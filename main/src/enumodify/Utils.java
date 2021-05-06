@@ -83,9 +83,9 @@ public final class Utils {
         Seq args = new Seq();
         args.addAll(in, null, MODES);
 
-        try{
+        try {
             Lookup.class.getDeclaredField("prevLookupClass");
-        }catch(NoSuchFieldException e){
+        } catch(NoSuchFieldException e) {
             argTypes.remove(1);
             args.remove(1);
         }
@@ -139,9 +139,9 @@ public final class Utils {
 
     private static <T> T createEnum(Class<T> type, Constructor<T> cons, Object... args) {
         try {
-            if(USE_SUN){
+            if(USE_SUN) {
                 return type.cast(J8_NEW_INSTANCE.invoke(getConstructorAccessor(type, cons), args));
-            }else{
+            } else {
                 cons.setAccessible(true);
 
                 Class<T> before = cons.getDeclaringClass();
